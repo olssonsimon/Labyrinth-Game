@@ -6,9 +6,9 @@ import java.awt.Robot;
 import ddf.minim.*;
 
 Minim minim;
-AudioPlayer cheer;
-AudioPlayer boo;
-AudioPlayer boom;
+AudioPlayer win;
+AudioPlayer gameover;
+AudioPlayer ohcrap;
  
 Robot robot;
 Arduino arduino;
@@ -27,7 +27,13 @@ int bottomMotor = 5;
 
 int currentColor = 0;
 
-int[][] level2 =
+int prevx;
+int prevy;
+
+PImage img = loadImage("/Users/simonolsson/Documents/Processing/Labyrint/apple.png");
+PImage pig = loadImage("/Users/simonolsson/Documents/Processing/Labyrint/pig.png");
+
+int[][] oldlevel =
 {{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
 {1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 1}, {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1}, 
 {1, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}, {1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1},
@@ -50,10 +56,10 @@ void setup() {
   arduino = new Arduino(this, Arduino.list()[5], 115200);
   
   minim = new Minim(this);
-  cheer = minim.loadFile("/Users/simonolsson/Documents/Processing/Labyrint/cheer.mp3");
-  boo = minim.loadFile("/Users/simonolsson/Documents/Processing/Labyrint/boo.mp3");
-  boom = minim.loadFile("/Users/simonolsson/Documents/Processing/Labyrint/boom.mp3");
-
+  win = minim.loadFile("/Users/simonolsson/Documents/Processing/Labyrint/nom.mp3");
+  gameover = minim.loadFile("/Users/simonolsson/Documents/Processing/Labyrint/gameover.mp3");
+  ohcrap = minim.loadFile("/Users/simonolsson/Documents/Processing/Labyrint/ohcrap.mp3");
+  
   arduino.pinMode(redPin, Arduino.OUTPUT);
   arduino.pinMode(greenPin, Arduino.OUTPUT);
   arduino.pinMode(bluePin, Arduino.OUTPUT);
@@ -65,23 +71,37 @@ void setup() {
     
   for (int i = 0; i < 12; i++) {
    for (int j = 0; j < 7; j++) {
-    if (level1[i][j] == 1) {
-      // Create a wall
-      Wall w = new Wall(180, i*100, j*100, 100);
-      walls.add(w);
-      w.drawMe(0);
-    }
+     // Add the apple
+     if (j == 5 && i == 10) {
+       image(img, i * 100, j * 100);
+     }
+      if (level1[i][j] == 1) {
+        // Create a wall
+        Wall w = new Wall(180, i*100, j*100, 100);
+        walls.add(w);
+        w.drawMe(0);
+      }
    } 
   }
-  placeMouseAtStart();
+  placeMouse(200, 200);
+  prevx = 200;
+  prevy = 200;
 }
 
 void draw() {
+  cursor(pig);
+  //moveMouse();
   drawMovement();
   int red = 0;
   int yellow = 0;
   int black = 0;
-  
+  // Check victory
+  if ((mouseX >= 1000 && mouseX <= 1100) && (mouseY >= 500 && mouseY <= 600)) {
+    frame.setTitle("Victory!");
+    play(win);
+    while(1 == 1);
+  }
+    
   for (Wall w: walls) {
     int val = w.isMouseOver();
     w.drawMe(val);
@@ -90,18 +110,55 @@ void draw() {
     } else if (val == 2) {
       red++;
     } else if(val == 3) {
+      if (lives > 0) {
+       // Play sound when life is lost 
+       play(ohcrap);
+      }
       black++;
     }
   }
+  
   chooseColor(black, red, yellow);
+
   if (lives <= 0) {
-     play(boom);
+     play(gameover);
      lives = 3;
-     placeMouseAtStart();
+     int i = 0;
+     // Lock mouse in place for a while
+     while (10000 > i++) {
+       placeMouse(200, 200);
+     }
   }
   String title = "Labyrint - Lives: " + lives;
   frame.setTitle(title);
   delay(10);
+}
+
+// not used atm
+void moveMouse() {
+  if (mouseX > prevx + 10) {
+    println("hej");
+    prevx = prevx + 5;
+    placeMouse(prevx, mouseY);
+  } else if (mouseX <= prevx - 10) {
+    prevx = prevx - 5;
+    placeMouse(prevx, mouseY);
+  } else {
+    prevx = mouseX;
+  }
+  
+  if (mouseY > prevy + 10) {
+    prevy = prevy + 5;
+    placeMouse(mouseX, prevy);
+  } else if (mouseY <= prevy - 10) {
+    prevy = prevy - 5;
+    placeMouse(mouseX, prevy);
+  } else {
+    prevy = mouseY; 
+  }
+  
+  // for debug
+  println("MouseX: " + mouseX + " prevx: " + prevx + "MouseY: " + mouseY + " prevy: " + prevy);
 }
 
 void setColor(int red, int green, int blue)
@@ -112,15 +169,14 @@ void setColor(int red, int green, int blue)
   arduino.analogWrite(bluePin, 255 - blue);
 }
 
-// Doesn't really work...
-void placeMouseAtStart() {
+void placeMouse(int x, int y) {
   try { 
     robot = new Robot();
   } 
   catch (AWTException e) {
     e.printStackTrace();
   }
-  robot.mouseMove(400, 120); 
+  robot.mouseMove(x, y); 
 }
 
 void chooseColor(int black, int red, int yellow){
@@ -152,9 +208,8 @@ void chooseColor(int black, int red, int yellow){
 boolean isSameColor(int currColor, int newColor){
   if(currColor == newColor){
     return true;
-  }else {
-    return false;
   }
+  return false;
 }
 
 void drawMovement() {
@@ -196,11 +251,10 @@ class Wall {
      return 3;
    } else if ((mouseX >= this.xpos-10 && mouseX <= this.xpos+this.size+10) &&
                (mouseY >= this.ypos-10 && mouseY <= this.ypos+this.size+10)) {
-     play(boo);
      this.vibrate(2);
      return 2;
-   } else if ((mouseX >= this.xpos-15 && mouseX <= this.xpos+this.size+15) &&
-               (mouseY >= this.ypos-15 && mouseY <= this.ypos+this.size+15)) {
+   } else if ((mouseX >= this.xpos-20 && mouseX <= this.xpos+this.size+20) &&
+               (mouseY >= this.ypos-20 && mouseY <= this.ypos+this.size+20)) {
      this.vibrate(1);
      return 1;
    } 
@@ -210,7 +264,6 @@ class Wall {
  // First element:  0 = left, 1 = right
  // Second element: 0 = up, 1 = down
  void vibrate(int i) {
-   //stopMotors();
    int motorSpeed = 100;
    
    if (i == 2) {
@@ -235,15 +288,6 @@ void stopMotors() {
   arduino.analogWrite(rightMotor, 0);
   arduino.analogWrite(topMotor, 0);
   arduino.analogWrite(bottomMotor, 0);
-}
-
-public void stop() {
-  cheer.close(); 
-  boo.close();
-  boom.close();
-  
-  minim.stop();
-  super.stop();
 }
 
 void play(AudioPlayer player) {
