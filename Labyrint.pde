@@ -20,10 +20,10 @@ int redPin = 11;
 int greenPin = 10;
 int bluePin = 9;
 
-int leftMotor = 6;
-int rightMotor = 3;
-int topMotor = 13;
-int bottomMotor = 5;
+int rightMotor = 13;
+int bottomMotor = 6;
+int topMotor = 5;
+int leftMotor = 3;
 
 int currentColor = 0;
 
@@ -251,37 +251,57 @@ class Wall {
      return 3;
    } else if ((mouseX >= this.xpos-10 && mouseX <= this.xpos+this.size+10) &&
                (mouseY >= this.ypos-10 && mouseY <= this.ypos+this.size+10)) {
-     this.vibrate(2);
+     vibrate(2, this.xpos, this.ypos);
      return 2;
    } else if ((mouseX >= this.xpos-20 && mouseX <= this.xpos+this.size+20) &&
                (mouseY >= this.ypos-20 && mouseY <= this.ypos+this.size+20)) {
-     this.vibrate(1);
+     vibrate(1, this.xpos, this.ypos);
      return 1;
    } 
    return 0;
  }
- 
+}
+
  // First element:  0 = left, 1 = right
  // Second element: 0 = up, 1 = down
- void vibrate(int i) {
-   int motorSpeed = 100;
+ void vibrate(int i, int x, int y) {
+   int motorSpeed = 100; // 100
    
    if (i == 2) {
-     motorSpeed = 250;
+     motorSpeed = 150; // 250
    }
    
-   if (mouseX <= this.xpos) {
-     arduino.analogWrite(leftMotor, motorSpeed);
+   int absx = (mouseX - x);
+   int absy = (mouseY - y);
+   
+   println("Abs X: ", absx, " Abs Y: ", absy);
+   
+   if (absx < 0) {
+     if (mouseX <= x) {
+       arduino.analogWrite(rightMotor, motorSpeed);
+     } else {
+       arduino.analogWrite(leftMotor, motorSpeed);
+     }
+   } else if (absy < 0) {
+     if (mouseY <= y) {
+       arduino.analogWrite(bottomMotor, motorSpeed);
    } else {
-     arduino.analogWrite(rightMotor, motorSpeed);
-   }
-   if (mouseY <= this.ypos) {
-     arduino.analogWrite(topMotor, motorSpeed);
+       arduino.analogWrite(topMotor, motorSpeed);
+     }
+   } else if (absx > absy) {
+     if (mouseX <= x) {
+       arduino.analogWrite(rightMotor, motorSpeed);
+     } else {
+       arduino.analogWrite(leftMotor, motorSpeed);
+     }
+   } else if (absx <= absy) {
+     if (mouseY <= y) {
+       arduino.analogWrite(bottomMotor, motorSpeed);
    } else {
-     arduino.analogWrite(bottomMotor, motorSpeed);
+       arduino.analogWrite(topMotor, motorSpeed);
+     }
    }
  }
-}
 
 void stopMotors() {
   arduino.analogWrite(leftMotor, 0);
